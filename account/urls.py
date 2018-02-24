@@ -11,7 +11,7 @@ friendship_urls = [
     path('<int:pk>/follow/', follow_user),
     path('<int:pk>/unfollow/', unfollow_user),
     path('followers/', user_followers),
-    path('following/', user_followings),
+    path('followings/', user_followings),
 ]
 
 urlpatterns = [

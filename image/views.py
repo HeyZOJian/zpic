@@ -29,7 +29,10 @@ def upload_photo(request):
         title = request.data.get('title')
         image = Image(author=user,img_url=url,title=title)
         image.save()
-
+        # 增加用户图片数量
+        # TODO: 原子性？
+        user.image_num += 1
+        user.save()
         return Response(ImageSerializer(image).data)
 
 

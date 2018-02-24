@@ -107,10 +107,7 @@ def user_followers(request):
     # TODO:没有筛掉被封的用户
     try:
         queryset = UserRelationship.objects.filter(user_a=request.user, relation_type=0)
-        if len(queryset) == 1:
-            users = UserFollowerSerializer(queryset, many=True)
-        else:
-            users = UserFollowersSerializer(queryset, many=True)
+        users = UserFollowersSerializer(queryset, many=True)
         return Response(users.data)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -124,16 +121,12 @@ def user_followings(request):
     :return:
     """
     # TODO:没有筛掉被封的用户
-    # try:
-    #     queryset = UserRelationship.objects.filter(user_b=request.user, relation_type=0)
-    #     if len(queryset) == 1:
-    #         users = UserFollowingSerializer(queryset, many=True)
-    #     else:
-    #         users = UserFollowingsSerializer(queryset, many=True)
-    #     return Response(users.data)
-    # except UserRelationship.DoesNotExist:
-    #     return Response(status.HTTP_400_BAD_REQUEST)
-    pass
+    try:
+        queryset = UserRelationship.objects.filter(user_b=request.user, relation_type=0)
+        users = UserFollowingsSerializer(queryset, many=True)
+        return Response(users.data)
+    except UserRelationship.DoesNotExist:
+        return Response(status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -145,10 +138,20 @@ def follow_user(request, pk):
     :return:
     """
     user_a = request.user
+    # 关注自己
+    if user_a.id == pk:
+        return Response(status.HTTP_400_BAD_REQUEST)
     try:
         user_b = User.objects.get(id=str(pk))
         relation = UserRelationship(user_a=user_a, user_b=user_b)
         relation.save()
+        # 增加关注，粉丝数量
+        # TODO: 原子性？
+        user_a.following_num += 1
+        user_b.follow_num += 1
+        user_a.save()
+        user_b.save()
+
         return Response({"msg": "关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -165,9 +168,18 @@ def unfollow_user(request, pk):
     :return:
     """
     user_a = request.user
+    # 取关自己
+    if user_a.id == pk:
+        return Response(status.HTTP_400_BAD_REQUEST)
     try:
         user_b = User.objects.get(id=str(pk))
-        UserRelationship.objects.filter(user_a=user_a,user_b=user_b).delete()
+        result, row = UserRelationship.objects.filter(user_a=user_a,user_b=user_b).delete()
+        # 减少关注，粉丝数量
+        if result:
+            user_a.following_num -= 1
+            user_b.follow_num -= 1
+            user_a.save()
+            user_b.save()
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)

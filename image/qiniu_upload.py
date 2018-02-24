@@ -27,6 +27,6 @@ def upload_to_qiniu_and_get_url(obj):
     # 生成上传 Token，可以指定过期时间等
     token = q.upload_token(bucket_name, filename, 3600)
     ret, info = put_file(token, filename, localfile)
-    assert ret['key'] == filename
-    assert ret['hash'] == etag(localfile)
+    if ret:
+        os.remove(localfile)
     return "http://"+bucket_url+"/"+filename

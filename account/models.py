@@ -7,6 +7,9 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=32, blank=True, unique=True)
     profile_photo_url = models.URLField(blank=True)
     description = models.CharField(max_length=256 ,blank=True)
+    follow_num = models.IntegerField(default=0,blank=True)
+    following_num = models.IntegerField(default=0,blank=True)
+    image_num = models.IntegerField(default=0,blank=True)
 
     class Meta:
         pass
