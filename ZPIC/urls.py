@@ -16,14 +16,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from account.urls import urlpatterns as account_urls
-from image.views import moments
 from image.urls import urlpatterns as image_urls
-from account.views import user_index
+from account.views import user_index, moments
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include(account_urls)),
     path('moments/', moments),
-    path('image/', include(image_urls)),
+    path('p/', include(image_urls)),
     path('<nickname>/', user_index),
 
 ]

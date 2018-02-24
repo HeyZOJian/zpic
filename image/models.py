@@ -6,8 +6,23 @@ from account.models import User
 class Image(models.Model):
     author = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='images')
     img_url = models.URLField(blank=False)
-    title = models.CharField(max_length=256,blank=True)
+    title = models.CharField(max_length=512, blank=True)
     create_time = models.DateTimeField(auto_now=True)
+    comment_num = models.IntegerField(default=0, blank=True)
+    like_num = models.IntegerField(default=0, blank=True)
 
     def __str__(self):
         return str(self.author) + ":" + str(self.img_url)
+
+
+class Comment(models.Model):
+    """
+    评论表
+    """
+    publisher =  models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='comments')
+    content = models.CharField(max_length=256, blank=False)
+    create_time = models.DateTimeField(auto_now=True)
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, related_name='comments')
+
+    def __str__(self):
+        return str(self.publisher)+":"+self.content

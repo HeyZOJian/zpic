@@ -72,7 +72,7 @@ def user_update(request):
     return Response(serializer.errors, status=400)
 
 
-# TODO: 权限设置
+@login_required
 def user_detail(request, pk):
     user = User.objects.get(pk=pk)
     serializer = UserSerializer(user)
@@ -94,9 +94,8 @@ def user_index(request, nickname):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 # ========================================好友操作=======================================
-# TODO：权限设置
 
-
+@login_required
 @api_view(['GET'])
 def user_followers(request):
     """
@@ -112,7 +111,7 @@ def user_followers(request):
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
-
+@login_required
 @api_view(['GET'])
 def user_followings(request):
     """
@@ -129,6 +128,7 @@ def user_followings(request):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
+@login_required
 @api_view(['POST'])
 def follow_user(request, pk):
     """
@@ -159,6 +159,7 @@ def follow_user(request, pk):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
+@login_required
 @api_view(['POST'])
 def unfollow_user(request, pk):
     """
@@ -183,3 +184,17 @@ def unfollow_user(request, pk):
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
+
+
+@login_required
+@api_view(['GET'])
+def moments(request):
+    """
+    查看朋友圈
+    :param request:
+    :return:
+    """
+    # TODO:获取关注好友的图片
+    user = request.user
+    serializer = LoginSerializer(user)
+    return Response(serializer.data)

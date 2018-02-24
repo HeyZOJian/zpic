@@ -24,7 +24,7 @@ class UserImagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'nickname', 'description',
-                  'profile_photo_url', 'images','follow_num', 'following_num', 'image_num')
+                  'profile_photo_url', 'follow_num', 'following_num', 'image_num',  'images')
 
 
 class UserFollowersSerializer(serializers.ModelSerializer):
