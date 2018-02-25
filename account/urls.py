@@ -18,6 +18,9 @@ urlpatterns = [
     path('register/', user_register),
     path('login/', user_login),
     path('logout/', user_logout),
-    path('update/', user_update),
+    path('check_username/', check_username),
+    path('check_nickname/', check_nickname),
+    path('edit/', user_update),
+    path('web_change_profile_photo/', change_profile_photo),
     path('friendships/', include(friendship_urls)),
 ]
