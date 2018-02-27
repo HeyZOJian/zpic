@@ -9,7 +9,6 @@ class Image(models.Model):
     title = models.CharField(max_length=512, blank=True)
     create_time = models.DateTimeField(auto_now=True)
     comment_num = models.IntegerField(default=0, blank=True)
-    like_num = models.IntegerField(default=0, blank=True)
 
     def __str__(self):
         return str(self.author) + ":" + str(self.img_url)

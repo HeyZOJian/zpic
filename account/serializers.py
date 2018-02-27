@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id','username', 'nickname','description', 'gender', 'phone_num'
+        fields = ('id','username', 'nickname','description', 'gender', 'phone_num',
                   'profile_photo_url','follow_num', 'following_num', 'image_num')
 
 
