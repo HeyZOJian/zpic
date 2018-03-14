@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from .models import *
 from .serializers import *
 from image.qiniu_upload import upload_to_qiniu_and_get_url
+from .account_utils import *
+from utils import redis_utils
 
 # User
 
@@ -75,6 +77,7 @@ def user_login(request):
             user = User.objects.get(username=username)
             if check_password(password, user.password):
                 login(request, user)
+                redis_utils.set_user_info(user.id, UserSimpleSerializer(user).data)
                 return HttpResponseRedirect('../../moments')
             else:
                 return Response({"msg": "账户或密码错误"})
@@ -163,11 +166,18 @@ def user_followers(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        queryset = UserRelationship.objects.filter(user_a=request.user, relation_type=0)
-        users = UserFollowersSerializer(queryset, many=True)
-        return Response(users.data)
+        page = int(request.GET.get('page'))-1
+        len = int(request.GET.get('len'))
+        result = redis_utils.get_follower(request.user.id, page, len)
+        if result:
+            return Response(result)
+        else:
+            followers = get_followers(request.user)
+            # TODO:更新进缓存
+            return Response(followers.data)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
+
 
 @login_required
 @api_view(['GET'])
@@ -179,9 +189,16 @@ def user_followings(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        queryset = UserRelationship.objects.filter(user_b=request.user, relation_type=0)
-        users = UserFollowingsSerializer(queryset, many=True)
-        return Response(users.data)
+        page = int(request.GET.get('page'))-1
+        len = int(request.GET.get('len'))
+        result = redis_utils.get_following(request.user.id, page, len)
+        if result:
+            return Response(result)
+        else:
+            queryset = UserRelationship.objects.filter(user_b=request.user, relation_type=0)
+            users = UserFollowingsSerializer(queryset, many=True)
+            #TODO： 更新进缓存
+            return Response(users.data)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
@@ -209,7 +226,7 @@ def follow_user(request, pk):
         user_b.follow_num += 1
         user_a.save()
         user_b.save()
-
+        redis_utils.follow_user(user_a.id, user_b.id)
         return Response({"msg": "关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -239,6 +256,7 @@ def unfollow_user(request, pk):
             user_b.follow_num -= 1
             user_a.save()
             user_b.save()
+        # TODO: 好友关系缓存更新
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -254,5 +272,6 @@ def moments(request):
     """
     # TODO:获取关注好友的图片
     user = request.user
-    serializer = LoginSerializer(user)
+    serializer = UserIndexSerializer(user)
+    followers = get_followers(user)
     return Response(serializer.data)

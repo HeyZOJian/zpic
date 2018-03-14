@@ -1,17 +1,11 @@
 from django.shortcuts import render
-from django.http.response import HttpResponseRedirect
 from rest_framework.decorators import api_view
 from django.contrib.auth.decorators import login_required
-from account.serializers import *
-from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
-from .models import *
 from .serializers import *
-import os
-import time
 from .qiniu_upload import upload_to_qiniu_and_get_url
-from redis_utils import get_connection
+from utils.redis_utils import get_connection
 from static_settings import *
 
 @login_required

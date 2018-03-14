@@ -10,11 +10,20 @@ class UserSerializer(serializers.ModelSerializer):
                   'description','profile_photo_url', 'follow_num', 'following_num', 'image_num')
 
 
-class LoginSerializer(serializers.ModelSerializer):
+class UserIndexSerializer(serializers.ModelSerializer):
+    """
+    用户主页序列化器
+    """
     class Meta:
         model = User
         fields = ('id','username', 'nickname','description', 'gender', 'phone_num',
                   'profile_photo_url','follow_num', 'following_num', 'image_num')
+
+
+class UserSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id','nickname','profile_photo_url')
 
 
 class UserImagesSerializer(serializers.ModelSerializer):
@@ -31,7 +40,7 @@ class UserFollowersSerializer(serializers.ModelSerializer):
     """
     序列化关注好友信息
     """
-    user_b = LoginSerializer(read_only=True)
+    user_b = UserSimpleSerializer(read_only=True)
 
     class Meta:
         model = User
@@ -42,7 +51,7 @@ class UserFollowingsSerializer(serializers.ModelSerializer):
     """
     序列化粉丝信息
     """
-    user_a = LoginSerializer(read_only=True)
+    user_a = UserSimpleSerializer(read_only=True)
 
     class Meta:
         model = User
