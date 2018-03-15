@@ -7,6 +7,10 @@ from .serializers import *
 from .qiniu_upload import upload_to_qiniu_and_get_url
 from utils.redis_utils import get_connection
 from static_settings import *
+from utils import redis_utils
+from rest_framework.renderers import JSONRenderer
+from image import utils
+
 
 @login_required
 @api_view(['GET', 'POST'])
@@ -30,47 +34,48 @@ def upload_image(request):
         # TODO: 原子性？
         user.image_num += 1
         user.save()
-        return Response(ImageSerializer(image).data)
+        serializer = ImageSerializer(image)
+        content = eval(JSONRenderer().render(serializer.data))
+        redis_utils.set_image_info(content)
+        return Response(serializer.data)
 
 
 @login_required
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 def like_image(request, pk):
     """
     点赞图片
     :param request:
     :return:
     """
-    # 通知图片主人
-    # redis 点赞数+1
+    if request.method == 'POST':
+        """
+        点赞图片
+        """
+        # TODO：通知图片主人
+        try:
+            redis_utils.add_like(request.user.id, pk)
+            return Response({"msg": "点赞成功"})
+        except Exception:
+            return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+    elif request.method == 'GET':
+        """
+        返回图片点赞数和点赞用户列表
+        """
+        try:
+            return Response(redis_utils.get_likes(pk))
+        except Exception:
+            return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@login_required
+@api_view(['POST'])
+def unlike_image(request, pk):
     try:
-        conn = get_connection()
-        conn.sadd(REDIS_LIKES+str(pk), request.user.nickname)
-        update_hots(conn, pk)
-        return Response({"msg": "ok"})
+        redis_utils.remove_like(request.user.id, pk)
+        return Response({'msg':'取消点赞成功'})
     except Exception:
-        return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-def get_image_likes(request, pk):
-    """
-    返回图片点赞数
-    :param request:
-    :param pk:
-    :return:
-    """
-    try:
-        conn = get_connection()
-        like_num = conn.scard(REDIS_LIKES+str(pk))
-        like_mem = conn.smembers(REDIS_LIKES+str(pk))
-        res = {}
-        res['likes'] = like_num
-        res['mems'] = like_mem
-        return Response(res)
-
-    except Exception:
-        return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -81,40 +86,22 @@ def get_image_detail(request, pk):
     :return:
     """
     try:
-        image = Image.objects.get(id=pk)
-        serializer = ImageSerializer(image)
-        # redis 浏览数+1
-        conn = get_connection()
-        conn.incr(REDIS_VIEWS_TOTAL+str(pk),1)
-        update_redis_hots(conn, pk)
-        # TODO: 将图片详细信息缓存到redis
-        return Response(serializer.data)
+        info = utils.get_image_info(pk)
+        return Response(info)
     except Image.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
-def get_image_views(request, pk):
+def view_image(request, pk):
     """
     获取图片总浏览数
     :param request:
     :param pk:
     :return:
     """
-    conn = get_connection()
-    views = conn.get(REDIS_VIEWS_TOTAL+str(pk))
-    return Response({"views": views})
-
-
-@api_view(['GET'])
-def get_hots_week(request, page):
-    try:
-        conn = get_connection()
-        result = conn.zrange(REDIS_HOTS_WEEK, page, page+10)
-        # TODO: 从redis中取出图片详细信息
-        return Response(result)
-    except Exception:
-        return Response(status.HTTP_400_BAD_REQUEST)
+    if request.method == 'GET':
+        return Response(redis_utils.get_views_num(pk))
 
 
 @login_required
@@ -126,15 +113,20 @@ def comment_image(request, pk):
     :param pk: 图片id
     :return:
     """
-    try:
-        content = request.data.get('content')
-        image = Image.objects.get(id=pk)
-        comment = Comment(publisher=request.user, content=content, image=image)
-        comment.save()
-        return Response('评论成功')
-    except Exception:
-        return Response(status.HTTP_400_BAD_REQUEST)
-
+    if request.method == 'POST':
+        try:
+            content = request.data.get('content')
+            image = Image.objects.get(id=pk)
+            comment = Comment(publisher=request.user, content=content, image=image)
+            comment.save()
+            # 更新缓存中图片的信息
+            image = Image.objects.get(id=pk)
+            serializer = ImageSerializer(image)
+            content = eval(JSONRenderer().render(serializer.data))
+            redis_utils.set_image_info(content)
+            return Response('评论成功')
+        except Exception:
+            return Response(status.HTTP_400_BAD_REQUEST)
 
 def update_redis_hots(conn, pk):
     # 更新热门周榜

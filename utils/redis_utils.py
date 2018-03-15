@@ -8,6 +8,8 @@ from rest_framework.renderers import JSONRenderer
 
 DAY_SECOND = 60 * 60 * 24
 WEEK_SECOND = DAY_SECOND * 7
+MONTH_SECOND = DAY_SECOND * 30
+
 POOL = redis.ConnectionPool(host='127.0.0.1',port=6379)
 
 
@@ -159,12 +161,95 @@ def set_followings(from_user_id, contents):
         pass
 
 
-def set_image_info(content):
-    image_id = str(content.get('id'))
+def set_image_info(info):
+    """
+    缓存图片信息
+    :param info:
+    :return:
+    """
+    image_id = str(info.get('id'))
     conn = get_connection()
+    pipe = conn.pipeline()
     key = 'image:' + image_id + ":info"
-    conn.set(key, content)
+    try:
+        pipe.set(key, info)
+        pipe.expire(key, MONTH_SECOND)
+        pipe.execute()
+    except Exception:
+        pass
 
 
 def get_image_info(image_id):
-    pass
+    """
+    获取缓存中的图片信息
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':info'
+    return eval(conn.get(key))
+
+
+def add_view_num(image_id):
+    """
+    图片浏览数+1
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'views:' + str(image_id)
+    conn.incrby(key, 1)
+#     TODO:浏览数%100==0持久化到数据库
+
+
+def get_views_num(image_id):
+    """
+    获取图片浏览数
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'views:' + str(image_id)
+    return conn.get(key)
+
+
+def add_like(user_id, image_id):
+    """
+    缓存图片的点赞列表
+    :param user_id: 点赞的人id
+    :param image_id: 图片id
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':likes'
+    t = (int(round(time.time() * 1000)))
+    conn.zadd(key, user_id, t)
+
+
+def remove_like(user_id, image_id):
+    """
+    取消点赞
+    :param user_id:
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':likes'
+    conn.zrem(key, user_id)
+
+
+def get_likes(image_id):
+    """
+    获取图片的点赞列表
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':likes'
+    users = conn.zrange(key, 0, -1)
+    result = []
+    result.append({'like_num':len(users)})
+    print(result)
+    for user_id in users:
+        result.append(get_user_info(user_id))
+    return result
