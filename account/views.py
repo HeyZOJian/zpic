@@ -172,9 +172,11 @@ def user_followers(request):
         if result:
             return Response(result)
         else:
-            followers = get_followers(request.user)
-            # TODO:更新进缓存
-            return Response(followers.data)
+            queryset = UserRelationship.objects.filter(user_a=request.user, relation_type=0).order_by('create_time')
+            users = UserFollowersSerializer(queryset, many=True)
+            content = eval(JSONRenderer().render(users.data))
+            redis_utils.set_followers(request.user.id, content)
+            return Response(users.data)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
@@ -197,7 +199,8 @@ def user_followings(request):
         else:
             queryset = UserRelationship.objects.filter(user_b=request.user, relation_type=0)
             users = UserFollowingsSerializer(queryset, many=True)
-            #TODO： 更新进缓存
+            content = eval(JSONRenderer().render(users.data))
+            redis_utils.set_followings(request.user.id, content)
             return Response(users.data)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -256,7 +259,7 @@ def unfollow_user(request, pk):
             user_b.follow_num -= 1
             user_a.save()
             user_b.save()
-        # TODO: 好友关系缓存更新
+        redis_utils.unfollow_user(user_a.id, user_b.id)
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)

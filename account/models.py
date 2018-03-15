@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
+import datetime
 
 # 用户表
 class User(AbstractUser):
@@ -25,9 +25,10 @@ class UserRelationship(models.Model):
     user_a = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='user_a')
     user_b = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='user_b')
     relation_type = models.IntegerField(blank=False, default=0)
+    create_time = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user_a', 'user_b', 'relation_type')
+        unique_together = ('user_a', 'user_b', 'relation_type', 'create_time')
 
     def __str__(self):
         relation = ""

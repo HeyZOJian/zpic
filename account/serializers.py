@@ -23,7 +23,7 @@ class UserIndexSerializer(serializers.ModelSerializer):
 class UserSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id','nickname','profile_photo_url')
+        fields = ('id', 'username', 'nickname','description','profile_photo_url')
 
 
 class UserImagesSerializer(serializers.ModelSerializer):
