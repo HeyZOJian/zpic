@@ -22,6 +22,7 @@ class Comment(models.Model):
     content = models.CharField(max_length=256, blank=False)
     create_time = models.DateTimeField(auto_now=True)
     image = models.ForeignKey(Image, on_delete=models.CASCADE, related_name='comments')
+    stauts = models.IntegerField(default=0)
 
     def __str__(self):
         return str(self.publisher)+":"+self.content

@@ -11,8 +11,6 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class ImageSerializer(serializers.ModelSerializer):
 
-    comments = CommentSerializer(many=True, read_only=True)
-
     class Meta:
         model = Image
-        fields = ('id', 'author', 'title','img_url', 'create_time', 'comments')
+        fields = ('id', 'author', 'title','img_url', 'create_time')

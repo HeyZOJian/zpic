@@ -1,13 +1,13 @@
-from image.models import Image
-from image.serializers import ImageSerializer
+from image.models import Image, Comment
+from image.serializers import ImageSerializer, CommentSerializer
 from utils import redis_utils
-
+from rest_framework.renderers import JSONRenderer
 
 def get_image_info(image_id):
-    info = redis_utils.get_image_info(image_id)
-    if info == None:
-        image = Image.objects.get(id=image_id)
-        info = ImageSerializer(image).data
-        redis_utils.set_image_info(info)
-    redis_utils.add_view_num(image_id)
-    return info
+    pass
+
+def get_image_comment(image_id, page, len):
+    data = Comment.objects.filter(image_id=image_id).filter(stauts=0).order_by('-create_time')
+    nums = data.__len__()
+    comments = CommentSerializer(data, many=True)
+    return nums, comments.data[page*len:(page+1)*len]

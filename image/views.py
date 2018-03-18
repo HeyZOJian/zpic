@@ -35,8 +35,8 @@ def upload_image(request):
         user.image_num += 1
         user.save()
         serializer = ImageSerializer(image)
-        content = eval(JSONRenderer().render(serializer.data))
-        redis_utils.set_image_info(content)
+        # 缓存图片信息
+        redis_utils.set_image_info(serializer.data)
         return Response(serializer.data)
 
 
@@ -86,7 +86,17 @@ def get_image_detail(request, pk):
     :return:
     """
     try:
-        info = utils.get_image_info(pk)
+
+        page = 0
+        len = 2
+        if request.GET.__len__() == 2:
+            page = int(request.GET.get('page'))-1
+            len = int(request.GET.get('len'))
+        image = Image.objects.get(id=pk)
+        serializer = ImageSerializer(image)
+        redis_utils.set_image_info(serializer.data)
+        info = eval(JSONRenderer().render(serializer.data))
+        info['content_num'], info['content'] = utils.get_image_comment(pk, page, len)
         return Response(info)
     except Image.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -105,7 +115,7 @@ def view_image(request, pk):
 
 
 @login_required
-@api_view(['POST'])
+@api_view(['POST', 'DELETE'])
 def comment_image(request, pk):
     """
     提交评论
@@ -115,18 +125,35 @@ def comment_image(request, pk):
     """
     if request.method == 'POST':
         try:
-            content = request.data.get('content')
+            content = request.data.get('comment')
             image = Image.objects.get(id=pk)
             comment = Comment(publisher=request.user, content=content, image=image)
             comment.save()
             # 更新缓存中图片的信息
-            image = Image.objects.get(id=pk)
-            serializer = ImageSerializer(image)
-            content = eval(JSONRenderer().render(serializer.data))
-            redis_utils.set_image_info(content)
+            # image = Image.objects.get(id=pk)
+            # serializer = ImageSerializer(image)
+            # content = eval(JSONRenderer().render(serializer.data))
+            # redis_utils.set_image_info(content, 2.5)
             return Response('评论成功')
         except Exception:
             return Response(status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        if request.GET.__len__()==1:
+            comment_id = request.GET.get('comment_id')
+            try:
+                comment = Comment.objects.get(id=comment_id)
+                print(comment)
+                comment.stauts=1
+                comment.save()
+                return Response({"msg":"删除评论成功"})
+            except Comment.DoesNotExist:
+                return Response(status.HTTP_400_BAD_REQUEST)
+        return Response(status.HTTP_400_BAD_REQUEST)
+
+
+
+
 
 def update_redis_hots(conn, pk):
     # 更新热门周榜
