@@ -9,7 +9,7 @@ from utils.redis_utils import get_connection
 from static_settings import *
 from utils import redis_utils
 from rest_framework.renderers import JSONRenderer
-from image import utils
+from image import utils as image_utils
 
 
 @login_required
@@ -63,7 +63,12 @@ def like_image(request, pk):
         返回图片点赞数和点赞用户列表
         """
         try:
-            return Response(redis_utils.get_likes(pk))
+            page = 0
+            len = 5
+            if request.GET.__len__() == 2:
+                page = int(request.GET.get('page')) - 1
+                len = int(request.GET.get('len'))
+            return Response(image_utils.get_image_likes(pk, page, len))
         except Exception:
             return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -71,6 +76,12 @@ def like_image(request, pk):
 @login_required
 @api_view(['POST'])
 def unlike_image(request, pk):
+    """
+    取消点赞
+    :param request:
+    :param pk:
+    :return:
+    """
     try:
         redis_utils.remove_like(request.user.id, pk)
         return Response({'msg':'取消点赞成功'})
@@ -86,17 +97,7 @@ def get_image_detail(request, pk):
     :return:
     """
     try:
-
-        page = 0
-        len = 2
-        if request.GET.__len__() == 2:
-            page = int(request.GET.get('page'))-1
-            len = int(request.GET.get('len'))
-        image = Image.objects.get(id=pk)
-        serializer = ImageSerializer(image)
-        redis_utils.set_image_info(serializer.data)
-        info = eval(JSONRenderer().render(serializer.data))
-        info['content_num'], info['content'] = utils.get_image_comment(pk, page, len)
+        info = image_utils.get_image_info(pk)
         return Response(info)
     except Image.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -115,7 +116,7 @@ def view_image(request, pk):
 
 
 @login_required
-@api_view(['POST', 'DELETE'])
+@api_view(['GET', 'POST', 'DELETE'])
 def comment_image(request, pk):
     """
     提交评论
@@ -123,22 +124,28 @@ def comment_image(request, pk):
     :param pk: 图片id
     :return:
     """
-    if request.method == 'POST':
+    if request.method == 'GET':
+        page = 0
+        len = 5
+        if request.GET.__len__() == 2:
+            page = int(request.GET.get('page')) - 1
+            len = int(request.GET.get('len'))
+        info = image_utils.get_image_comment(pk, page, len)
+        return Response(info)
+
+    elif request.method == 'POST':
         try:
             content = request.data.get('comment')
             image = Image.objects.get(id=pk)
             comment = Comment(publisher=request.user, content=content, image=image)
             comment.save()
-            # 更新缓存中图片的信息
-            # image = Image.objects.get(id=pk)
-            # serializer = ImageSerializer(image)
-            # content = eval(JSONRenderer().render(serializer.data))
-            # redis_utils.set_image_info(content, 2.5)
+            # 更新日榜图片积分
+            redis_utils.add_score_dayrank(pk)
             return Response('评论成功')
         except Exception:
             return Response(status.HTTP_400_BAD_REQUEST)
 
-    if request.method == 'DELETE':
+    elif request.method == 'DELETE':
         if request.GET.__len__()==1:
             comment_id = request.GET.get('comment_id')
             try:
