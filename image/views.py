@@ -130,7 +130,7 @@ def comment_image(request, pk):
         if request.GET.__len__() == 2:
             page = int(request.GET.get('page')) - 1
             len = int(request.GET.get('len'))
-        info = image_utils.get_image_comment(pk, page, len)
+        info = image_utils.get_image_comments(pk, page, len)
         return Response(info)
 
     elif request.method == 'POST':

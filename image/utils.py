@@ -24,7 +24,12 @@ def get_image_comments(image_id, page, len):
     data = Comment.objects.filter(image_id=image_id).filter(stauts=0).order_by('-create_time')
     nums = data.__len__()
     comments = CommentSerializer(data, many=True)
-    return nums, comments.data[page*len:(page+1)*len]
+    info = eval(JSONRenderer().render(comments.data))[page*len:(page+1)*len]
+    for i in info:
+        user_id = i['publisher']
+        user_info = account_utils.get_user_info(user_id)
+        i['publisher'] = user_info
+    return nums, info
 
 
 def get_image_likes(image_id, page, len):
