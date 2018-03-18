@@ -58,6 +58,7 @@ def like_image(request, pk):
             return Response({"msg": "点赞成功"})
         except Exception:
             return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     elif request.method == 'GET':
         """
         返回图片点赞数和点赞用户列表
@@ -68,7 +69,9 @@ def like_image(request, pk):
             if request.GET.__len__() == 2:
                 page = int(request.GET.get('page')) - 1
                 len = int(request.GET.get('len'))
-            return Response(image_utils.get_image_likes(pk, page, len))
+            info={}
+            info['like_nums'], info['users'] = image_utils.get_image_likes(pk, page, len)
+            return Response(info)
         except Exception:
             return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
