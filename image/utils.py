@@ -5,6 +5,15 @@ from rest_framework.renderers import JSONRenderer
 from account import utils as account_utils
 
 
+def get_page_and_len(request, default_page, default_len):
+    page = default_page
+    len = default_len
+    if request.GET.__len__() == 2:
+        page = int(request.GET.get('page')) - 1
+        len = int(request.GET.get('len'))
+    return page,len
+
+
 def get_image_info(image_id):
     info = redis_utils.get_image_info(image_id)
     if info == None:

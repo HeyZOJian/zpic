@@ -14,6 +14,8 @@ from .serializers import *
 from image.qiniu_upload import upload_to_qiniu_and_get_url
 from .account_utils import *
 from utils import redis_utils
+from image.models import Image
+import account.utils as user_utils
 
 # User
 
@@ -96,6 +98,7 @@ def user_logout(request):
 @login_required
 @api_view(['PUT'])
 def user_update(request):
+    # TODO: 字段验证
     """
     更新个人资料
     :param request:
@@ -147,10 +150,21 @@ def user_index(request, nickname):
     :param request:
     :return:
     """
+    page = 0
+    len = 9
+    if request.GET.__len__() == 2:
+        page = int(request.GET.get('page')) - 1
+        len = int(request.GET.get('len'))
     try:
         user = User.objects.get(nickname=nickname)
-        serializer = UserImagesSerializer(user)
-        return Response(serializer.data)
+        info = {}
+        info['user'] = user_utils.get_user_info(user.id)
+        images = Image.objects.values_list('id').filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
+        images_id = []
+        for image in images:
+            images_id.append(image[0])
+        info['images_id'] = images_id
+        return Response(info)
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
@@ -166,8 +180,11 @@ def user_followers(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        page = int(request.GET.get('page'))-1
-        len = int(request.GET.get('len'))
+        page = 0
+        len = 5
+        if request.GET.__len__() == 2:
+            page = int(request.GET.get('page'))-1
+            len = int(request.GET.get('len'))
         result = redis_utils.get_follower(request.user.id, page, len)
         if result:
             return Response(result)
@@ -191,8 +208,11 @@ def user_followings(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        page = int(request.GET.get('page'))-1
-        len = int(request.GET.get('len'))
+        page = 0
+        len = 5
+        if request.GET.__len__() == 2:
+            page = int(request.GET.get('page')) - 1
+            len = int(request.GET.get('len'))
         result = redis_utils.get_following(request.user.id, page, len)
         if result:
             return Response(result)

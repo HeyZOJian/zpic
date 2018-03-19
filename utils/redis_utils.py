@@ -4,7 +4,7 @@ import json
 from account.serializers import UserSimpleSerializer
 from account.models import User
 from rest_framework.renderers import JSONRenderer
-
+from utils import date_utils
 
 DAY_SECOND = 60 * 60 * 24
 WEEK_SECOND = DAY_SECOND * 7
@@ -97,7 +97,7 @@ def get_follower(user_id, page=0, len=10):
     """
     conn = get_connection()
     key = 'user:' + str(user_id) + ':followers'
-    queryset = conn.zrange(key, page, (page + 1)*len)
+    queryset = conn.zrange(key, page*len, (page + 1)*len)
     result = []
     for user_id in queryset:
         result.append(get_user_info(str(user_id)[2:-1]))
@@ -112,7 +112,7 @@ def get_following(user_id, page=0, len=10):
     """
     conn = get_connection()
     key = 'user:' + str(user_id) + ':followings'
-    queryset = conn.zrange(key, page, (page + 1) * len)
+    queryset = conn.zrange(key, page*len, (page + 1) * len)
     result = []
     for user_id in queryset:
         result.append(get_user_info(str(user_id)[2:-1]))
@@ -170,10 +170,10 @@ def set_image_info(info):
     image_id = str(info.get('id'))
     conn = get_connection()
     pipe = conn.pipeline()
-    key = 'image:' + image_id + ":info"
+    image_key = 'image:' + image_id + ":info"
     try:
-        pipe.set(key, info)
-        pipe.expire(key, MONTH_SECOND)
+        pipe.set(image_key, info)
+        pipe.expire(image_id, MONTH_SECOND)
         pipe.execute()
     except Exception:
         pass
@@ -187,7 +187,11 @@ def get_image_info(image_id):
     """
     conn = get_connection()
     key = 'image:' + str(image_id) + ':info'
-    return eval(conn.get(key))
+    info = conn.get(key)
+    if info:
+        return eval(info)
+    else:
+        return None
 
 
 def add_view_num(image_id):
@@ -197,8 +201,15 @@ def add_view_num(image_id):
     :return:
     """
     conn = get_connection()
-    key = 'views:' + str(image_id)
-    conn.incrby(key, 1)
+    pipe = conn.pipeline()
+    view_key = 'views:' + str(image_id)
+    hot_key = 'hots:' + str(date_utils.get_today())
+    try:
+        pipe.incrby(view_key, 1)
+        pipe.zincrby(hot_key, image_id, 1)
+        pipe.execute()
+    except Exception:
+        pass
 #     TODO:浏览数%100==0持久化到数据库
 
 
@@ -221,9 +232,17 @@ def add_like(user_id, image_id):
     :return:
     """
     conn = get_connection()
-    key = 'image:' + str(image_id) + ':likes'
+    pipe = conn.pipeline()
+    image_key = 'image:' + str(image_id) + ':likes'
+    hot_key = 'hots:' + str(date_utils.get_today())
     t = (int(round(time.time() * 1000)))
-    conn.zadd(key, user_id, t)
+    try:
+        if conn.zrank(image_key, user_id) == None:
+            pipe.zadd(image_key, user_id, t)
+            pipe.zincrby(hot_key, image_id, 2)
+            pipe.execute()
+    except Exception:
+        print("点赞缓存失败")
 
 
 def remove_like(user_id, image_id):
@@ -238,7 +257,7 @@ def remove_like(user_id, image_id):
     conn.zrem(key, user_id)
 
 
-def get_likes(image_id):
+def get_image_likes(image_id):
     """
     获取图片的点赞列表
     :param image_id:
@@ -246,10 +265,68 @@ def get_likes(image_id):
     """
     conn = get_connection()
     key = 'image:' + str(image_id) + ':likes'
-    users = conn.zrange(key, 0, -1)
+    users = conn.zrevrange(key, 0, -1)
     result = []
-    result.append({'like_num':len(users)})
-    print(result)
     for user_id in users:
         result.append(get_user_info(user_id))
     return result
+
+
+def add_score_dayrank(image_id):
+    """
+    评论后更新日榜积分
+    :param image_id:
+    :return:
+    """
+    key = 'hots:' + str(date_utils.get_today())
+    conn = get_connection()
+    conn.zincrby(key, image_id, 2.5)
+
+
+def get_hots_day(date, start, end):
+    """
+    获取当日热门图片
+    :param date:
+    :param start:
+    :param end:
+    :return:
+    """
+    conn = get_connection()
+    key = 'hots:' + str(date)
+    id_lists = conn.zrevrange(key, start, end)
+    results = []
+    for id in id_lists:
+        results.append(get_image_info(int(id)))
+    return results
+
+
+def get_hots_week(days, start, end):
+    conn = get_connection()
+    key = 'hots:this_week'
+    try:
+        # TODO: 事务问题
+        weeks = ['hots:'+day for day in days]
+        conn.zunionstore(key, weeks)
+        id_lists = conn.zrevrange(key, start, end)
+        results = []
+        for id in id_lists:
+            results.append(get_image_info(int(id)))
+        return results
+    except Exception as e:
+        print(e)
+
+
+def get_hots_month(days, start, end):
+    conn = get_connection()
+    key = 'hots:this_month'
+    try:
+        # TODO: 事务问题
+        weeks = ['hots:' + day for day in days]
+        conn.zunionstore(key, weeks)
+        id_lists = conn.zrevrange(key, start, end)
+        results = []
+        for id in id_lists:
+            results.append(get_image_info(int(id)))
+        return results
+    except Exception as e:
+        print(e)

@@ -10,7 +10,7 @@ from static_settings import *
 from utils import redis_utils
 from rest_framework.renderers import JSONRenderer
 from image import utils as image_utils
-
+from utils import date_utils
 
 @login_required
 @api_view(['GET', 'POST'])
@@ -64,11 +64,7 @@ def like_image(request, pk):
         返回图片点赞数和点赞用户列表
         """
         try:
-            page = 0
-            len = 5
-            if request.GET.__len__() == 2:
-                page = int(request.GET.get('page')) - 1
-                len = int(request.GET.get('len'))
+            page, len = image_utils.get_page_and_len(request, 0, 5)
             info={}
             info['like_nums'], info['users'] = image_utils.get_image_likes(pk, page, len)
             return Response(info)
@@ -128,11 +124,7 @@ def comment_image(request, pk):
     :return:
     """
     if request.method == 'GET':
-        page = 0
-        len = 5
-        if request.GET.__len__() == 2:
-            page = int(request.GET.get('page')) - 1
-            len = int(request.GET.get('len'))
+        page, len = image_utils.get_page_and_len(request, 0, 5)
         info = image_utils.get_image_comments(pk, page, len)
         return Response(info)
 
@@ -162,19 +154,36 @@ def comment_image(request, pk):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['GET'])
+def hots_day(request):
+    """
+    每日热门图片榜
+    """
+    page, len = image_utils.get_page_and_len(request, 0, 12)
+    today = date_utils.get_today()
+    results = redis_utils.get_hots_day(today, page*len, (page+1)*len-1)
+    return Response(results)
 
 
+@api_view(['GET'])
+def hots_week(request):
+    """
+    每周热门图片榜
+    """
+    page, len = image_utils.get_page_and_len(request, 0, 12)
+    this_weeks = date_utils.get_this_week()
+    results = redis_utils.get_hots_week(this_weeks, page*len, (page+1)*len-1)
+    return Response(results)
 
-def update_redis_hots(conn, pk):
-    # 更新热门周榜
-    if conn.exists(REDIS_HOTS_WEEK) == 0:
-        conn.zincrby(REDIS_HOTS_WEEK, pk, 1)
-        conn.expire(REDIS_HOTS_WEEK, WEEK_SECOND)
-    else:
-        conn.zincrby(REDIS_HOTS_WEEK, pk, 1)
-    # 更新热门月榜
-    if conn.exists(REDIS_HOTS_MONTH) == 0:
-        conn.zincrby(REDIS_HOTS_MONTH, pk, 1)
-        conn.expire(REDIS_HOTS_MONTH, WEEK_SECOND)
-    else:
-        conn.zincrby(REDIS_HOTS_MONTH, pk, 1)
+
+@api_view(['GET'])
+def hots_month(request):
+    """
+    每月热门图片榜
+    """
+    page, len = image_utils.get_page_and_len(request, 0, 12)
+    this_months = date_utils.get_this_month()
+    results = redis_utils.get_hots_month(this_months, page*len, (page+1)*len-1)
+    return Response(results)
+
+

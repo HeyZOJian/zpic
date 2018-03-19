@@ -18,7 +18,7 @@ from django.urls import path, include
 from account.urls import urlpatterns as account_urls
 from image.urls import urlpatterns as image_urls
 from account.views import user_index, moments
-
+from image.views import hots_day, hots_week, hots_month
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,4 +26,7 @@ urlpatterns = [
     path('moments/', moments),
     path('p/', include(image_urls)),
     path('<nickname>/', user_index),
+    path('hots/day/', hots_day),
+    path('hots/week/', hots_week),
+    path('hots/month/', hots_month),
 ]
