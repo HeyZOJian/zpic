@@ -104,6 +104,17 @@ def get_follower(user_id, page=0, len=10):
     return result
 
 
+def get_follower_num(user_id):
+    """
+    获取关注数
+    :param user_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'user:' + str(user_id) + ':followers'
+    return conn.zcard(key)
+
+
 def get_following(user_id, page=0, len=10):
     """
     获取缓存中的粉丝列表
@@ -117,6 +128,17 @@ def get_following(user_id, page=0, len=10):
     for user_id in queryset:
         result.append(get_user_info(str(user_id)[2:-1]))
     return result
+
+
+def get_following_num(user_id):
+    """
+    获取粉丝数
+    :param user_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'user:' + str(user_id) + ':followings'
+    return conn.zcard(key)
 
 
 def set_followers(from_user_id, contents):
@@ -167,12 +189,15 @@ def set_image_info(info):
     :param info:
     :return:
     """
+    user_id = str(info.get('author'))
     image_id = str(info.get('id'))
     conn = get_connection()
     pipe = conn.pipeline()
     image_key = 'image:' + image_id + ":info"
+    user_image_set_key = 'user:'+user_id + ':images'
     try:
         pipe.set(image_key, info)
+        pipe.sadd(user_image_set_key,image_id)
         pipe.expire(image_id, MONTH_SECOND)
         pipe.execute()
     except Exception:
@@ -193,6 +218,28 @@ def get_image_info(image_id):
     else:
         return None
 
+
+def add_comments(image_id, comment_info):
+    """
+    添加图片评论信息
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':comments'
+    t = (int(round(time.time() * 1000)))
+    conn.zadd(key,comment_info, t)
+
+
+def get_comments(image_id, page, len):
+    """
+    获取图片评论信息
+    :param image_id:
+    :return:
+    """
+    conn = get_connection()
+    key = 'image:' + str(image_id) + ':comments'
+    return conn.zcard(key), conn.zrange(key,page*len, (page+1)*len)
 
 def add_view_num(image_id):
     """

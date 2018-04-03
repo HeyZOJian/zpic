@@ -12,10 +12,9 @@ from django.contrib.auth.decorators import login_required
 from .models import *
 from .serializers import *
 from image.qiniu_upload import upload_to_qiniu_and_get_url
-from .account_utils import *
 from utils import redis_utils
 from image.models import Image
-import account.utils as user_utils
+import account.utils as account_utils
 
 # User
 
@@ -62,7 +61,6 @@ def user_register(request):
         User(username=username,nickname=nickname,password=make_password(password)).save()
         return HttpResponseRedirect('../login')
 
-
 @api_view(['GET', 'POST'])
 def user_login(request):
     """
@@ -73,21 +71,31 @@ def user_login(request):
     if request.method == 'GET':
         return render(request,'user/login.html')
     if request.method == 'POST':
+        print(request.data)
         username = request.data.get('username')
         password = request.data.get('password')
+        print(username,password)
         try:
+            res = Response()
             user = User.objects.get(username=username)
             if check_password(password, user.password):
                 login(request, user)
-                redis_utils.set_user_info(user.id, UserSimpleSerializer(user).data)
-                return HttpResponseRedirect('../../moments')
+                info = UserIndexSerializer(user).data
+                # redis_utils.set_user_info(user.id, info)
+                res.data = {"success": "登陆成功！", "userInfo": info}
+                res.status_code = 200
+                return res
             else:
-                return Response({"msg": "账户或密码错误"})
+                res.data={"error_msg": "账号或密码错误！"}
+                res.status_code = 400
+                return res
         except User.DoesNotExist:
-            return Response(status.HTTP_400_BAD_REQUEST)
+            res.data = {"error_msg": "账号或密码错误！"}
+            res.status_code = 400
+            return res
 
 
-@api_view(['GET'])
+@api_view(['GET','POST'])
 def user_logout(request):
     logout(request)
     return Response({"msg":"退出成功"})
@@ -150,15 +158,11 @@ def user_index(request, nickname):
     :param request:
     :return:
     """
-    page = 0
-    len = 9
-    if request.GET.__len__() == 2:
-        page = int(request.GET.get('page')) - 1
-        len = int(request.GET.get('len'))
+    page, len = account_utils.get_page_and_len(request, 0, 9)
     try:
         user = User.objects.get(nickname=nickname)
         info = {}
-        info['user'] = user_utils.get_user_info(user.id)
+        info['userInfo'] = UserImagesSerializer(user).data
         images = Image.objects.values_list('id').filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
         images_id = []
         for image in images:
@@ -166,13 +170,13 @@ def user_index(request, nickname):
         info['images_id'] = images_id
         return Response(info)
     except User.DoesNotExist:
-        return Response(status.HTTP_400_BAD_REQUEST)
+        return Response(status.HTTP_404_NOT_FOUND)
 
 # ========================================好友操作=======================================
 
 @login_required
 @api_view(['GET'])
-def user_followers(request):
+def user_followers(request, nickname):
     """
     用户的关注列表
     :param request:
@@ -180,12 +184,9 @@ def user_followers(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        page = 0
-        len = 5
-        if request.GET.__len__() == 2:
-            page = int(request.GET.get('page'))-1
-            len = int(request.GET.get('len'))
-        result = redis_utils.get_follower(request.user.id, page, len)
+        user_id = User.objects.get(nickname=nickname).id
+        page, len = account_utils.get_page_and_len(request, 0, 10)
+        result = redis_utils.get_follower(user_id, page, len)
         if result:
             return Response(result)
         else:
@@ -200,7 +201,7 @@ def user_followers(request):
 
 @login_required
 @api_view(['GET'])
-def user_followings(request):
+def user_followings(request, nickname):
     """
     用户的粉丝列表
     :param request:
@@ -208,12 +209,9 @@ def user_followings(request):
     """
     # TODO:没有筛掉被封的用户
     try:
-        page = 0
-        len = 5
-        if request.GET.__len__() == 2:
-            page = int(request.GET.get('page')) - 1
-            len = int(request.GET.get('len'))
-        result = redis_utils.get_following(request.user.id, page, len)
+        user_id = User.objects.get(nickname=nickname).id
+        page, len = account_utils.get_page_and_len(request, 0, 10)
+        result = redis_utils.get_following(user_id, page, len)
         if result:
             return Response(result)
         else:
@@ -285,7 +283,7 @@ def unfollow_user(request, pk):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
-@login_required
+# @login_required
 @api_view(['GET'])
 def moments(request):
     """

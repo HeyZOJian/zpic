@@ -17,15 +17,17 @@ from django.contrib import admin
 from django.urls import path, include
 from account.urls import urlpatterns as account_urls
 from image.urls import urlpatterns as image_urls
-from account.views import user_index, moments
+from account.views import user_index, moments, user_followers, user_followings
 from image.views import hots_day, hots_week, hots_month
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include(account_urls)),
+    path('account/', include(account_urls)),
     path('moments/', moments),
     path('p/', include(image_urls)),
     path('<nickname>/', user_index),
+    path('<nickname>/followers/', user_followers),
+    path('<nickname>/followings/', user_followings),
     path('hots/day/', hots_day),
     path('hots/week/', hots_week),
     path('hots/month/', hots_month),

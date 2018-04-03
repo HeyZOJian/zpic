@@ -9,9 +9,7 @@ user_urls = [
 
 friendship_urls = [
     path('<int:pk>/follow/', follow_user),
-    path('<int:pk>/unfollow/', unfollow_user),
-    path('followers/', user_followers),
-    path('followings/', user_followings),
+    path('<int:pk>/unfollow/', unfollow_user)
 ]
 
 urlpatterns = [
@@ -20,7 +18,7 @@ urlpatterns = [
     path('logout/', user_logout),
     path('check_username/', check_username),
     path('check_nickname/', check_nickname),
-    path('edit/', user_update),
-    path('web_change_profile_photo/', change_profile_photo),
-    path('friendships/', include(friendship_urls)),
+    path('info/', user_update),
+    path('profile_photo/', change_profile_photo),
+    path('friend/', include(friendship_urls)),
 ]

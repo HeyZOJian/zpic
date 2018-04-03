@@ -33,17 +33,32 @@ def get_image_comments_num(image_id):
     data = Comment.objects.filter(image_id=image_id).filter(stauts=0).order_by('-create_time')
     return data.__len__()
 
-def get_image_comments(image_id, page, len):
-    data = Comment.objects.filter(image_id=image_id).filter(stauts=0).order_by('-create_time')
-    nums = data.__len__()
-    comments = CommentSerializer(data, many=True)
-    info = eval(JSONRenderer().render(comments.data))[page*len:(page+1)*len]
-    for i in info:
-        user_id = i['publisher']
-        user_info = account_utils.get_user_info(user_id)
-        i['publisher'] = user_info
-    return nums, info
 
+def get_image_comments(image_id, page, len):
+    nums, info = redis_utils.get_comments(image_id, page, len)
+    info = [eval(i) for i in info]
+    if not info:
+        data = Comment.objects.filter(image_id=image_id).filter(stauts=0).order_by('-create_time')
+        nums = data.__len__()
+        comments = CommentSerializer(data, many=True)
+        info = eval(JSONRenderer().render(comments.data))[page*len:(page+1)*len]
+        for i in info:
+            user_id = i['publisher']
+            user_info = account_utils.get_user_info(user_id)
+            i['publisher_nickname'] = user_info.get('nickname')
+            i['publisher_id'] = user_info.get('id')
+            redis_utils.add_comments(image_id,i)
+    return {'num':nums, 'comments': info}
+
+
+def add_image_comment(image_id, user, content):
+    image = Image.objects.get(id=image_id)
+    comment = Comment(publisher=user, content=content, image=image)
+    comment.save()
+    comment_info = CommentSerializer(comment).data
+    comment_info['publisher_nickname'] = user.nickname
+    comment_info['publisher_id'] = user.id
+    redis_utils.add_comments(image_id, comment_info)
 
 def get_image_likes_num(image_id):
     users = redis_utils.get_image_likes(image_id)

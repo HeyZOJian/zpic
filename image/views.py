@@ -113,10 +113,10 @@ def view_image(request, pk):
     if request.method == 'GET':
         return Response(redis_utils.get_views_num(pk))
 
-
-@login_required
+# TODO: get的登陆权限，delete判断是否为用户自己本身
+# @login_required
 @api_view(['GET', 'POST', 'DELETE'])
-def comment_image(request, pk):
+def image_comment(request, pk):
     """
     提交评论
     :param request:
@@ -124,16 +124,14 @@ def comment_image(request, pk):
     :return:
     """
     if request.method == 'GET':
-        page, len = image_utils.get_page_and_len(request, 0, 5)
+        page, len = image_utils.get_page_and_len(request, 0, 20)
         info = image_utils.get_image_comments(pk, page, len)
         return Response(info)
 
     elif request.method == 'POST':
         try:
             content = request.data.get('comment')
-            image = Image.objects.get(id=pk)
-            comment = Comment(publisher=request.user, content=content, image=image)
-            comment.save()
+            image_utils.add_image_comment(pk, request.user, content)
             # 更新日榜图片积分
             redis_utils.add_score_dayrank(pk)
             return Response('评论成功')
