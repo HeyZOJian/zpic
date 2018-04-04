@@ -21,4 +21,5 @@ urlpatterns = [
     path('info/', user_update),
     path('profile_photo/', change_profile_photo),
     path('friend/', include(friendship_urls)),
+    path('search/', search_user)
 ]

@@ -286,5 +286,13 @@ def moments(request):
     :param request:
     :return:
     """
-    # TODO:获取关注好友的图片
-    return Response({"images_id":feed_utils.get_moments(request.user.id, 0,100)})
+    page, len = account_utils.get_page_and_len(request, 0, 20)
+    return Response({"images_id":feed_utils.get_moments(request.user.id, page,len)})
+
+
+@api_view(['GET'])
+def search_user(request):
+    keyword = request.GET.get('keyword')
+    results = User.objects.filter(nickname__icontains=keyword)
+    results = [user.id for user in results]
+    return Response({"users_id":results})

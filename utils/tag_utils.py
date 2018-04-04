@@ -36,7 +36,4 @@ def get_images(tag):
     conn = redis_utils.get_connection()
     key = 'tag:' + tag
     images_id = [bytes.decode(id) for id in conn.zrange(key, 0, -1)]
-    result = []
-    for id in images_id:
-        result.append(redis_utils.get_image_info(id))
-    return {"images":result}
+    return {"images_id":images_id}
