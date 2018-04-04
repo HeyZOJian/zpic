@@ -5,13 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import *
 from .qiniu_upload import upload_to_qiniu_and_get_url
-from utils.redis_utils import get_connection
-from static_settings import *
-from utils import redis_utils
-from rest_framework.renderers import JSONRenderer
 from image import utils as image_utils
-from utils import date_utils
-from utils import feed_utils
+from utils import date_utils, feed_utils, redis_utils, tag_utils
 
 
 @login_required
@@ -40,6 +35,7 @@ def upload_image(request):
         # 缓存图片信息
         redis_utils.set_image_info(serializer.data,image.create_time)
         feed_utils.send(user.id, image.id, image.create_time)
+        tag_utils.add_image(tag_utils.filter_tag(title), image.id,image.create_time)
         return Response(serializer.data)
 
 # TODO: 未登录时GET 只能获取点赞数
@@ -156,6 +152,12 @@ def image_comment(request, pk):
             except Comment.DoesNotExist:
                 return Response(status.HTTP_400_BAD_REQUEST)
         return Response(status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def get_tag_images(request, tag):
+    # tag = request.GET.get('tag')
+    return Response(tag_utils.get_images(tag))
 
 
 @api_view(['GET'])

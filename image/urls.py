@@ -8,4 +8,5 @@ urlpatterns = [
     path('<int:pk>/like/', like_image),
     path('<int:pk>/unlike/', unlike_image),
     path('<int:pk>/view/', view_image),
+    path('tag/<tag>/',get_tag_images)
 ]

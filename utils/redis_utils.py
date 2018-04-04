@@ -15,9 +15,7 @@ MONTH_SECOND = DAY_SECOND * 30
 POOL = redis.ConnectionPool(host='127.0.0.1',port=6379)
 
 
-# 字符串时间转为时间戳
-def Changetime(date):
-    return time.mktime(date.timetuple())
+
 
 def get_connection():
     return redis.Redis(connection_pool=POOL)
@@ -214,8 +212,8 @@ def set_image_info(info, date):
     user_image_set_key = 'user:'+user_id + ':images'
     try:
         pipe.set(image_key, info)
-        pipe.zadd(user_image_set_key, image_id, Changetime(date))
-        pipe.zadd('moments:'+str(user_id), image_id, Changetime(date))
+        pipe.zadd(user_image_set_key, image_id, date_utils.Changetime(date))
+        pipe.zadd('moments:'+str(user_id), image_id, date_utils.Changetime(date))
         pipe.expire(image_id, MONTH_SECOND)
         pipe.execute()
     except Exception:

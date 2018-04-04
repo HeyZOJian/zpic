@@ -1,4 +1,9 @@
 import datetime
+import time
+
+# 字符串时间转为时间戳
+def Changetime(date):
+    return time.mktime(date.timetuple())
 
 def get_today():
     """
