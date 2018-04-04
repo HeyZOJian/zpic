@@ -15,6 +15,7 @@ from image.qiniu_upload import upload_to_qiniu_and_get_url
 from utils import redis_utils
 from image.models import Image
 import account.utils as account_utils
+from utils import feed_utils
 
 # User
 
@@ -71,32 +72,32 @@ def user_login(request):
     if request.method == 'GET':
         return render(request,'user/login.html')
     if request.method == 'POST':
-        print(request.data)
         username = request.data.get('username')
         password = request.data.get('password')
-        print(username,password)
         try:
             res = Response()
             user = User.objects.get(username=username)
             if check_password(password, user.password):
                 login(request, user)
                 info = UserIndexSerializer(user).data
+                info['sessionid'] = request.session.session_key
                 # redis_utils.set_user_info(user.id, info)
-                res.data = {"success": "登陆成功！", "userInfo": info}
+                res.data = {"msg": "success", "userInfo": info}
                 res.status_code = 200
                 return res
             else:
-                res.data={"error_msg": "账号或密码错误！"}
+                res.data={"msg": "fail"}
                 res.status_code = 400
                 return res
         except User.DoesNotExist:
-            res.data = {"error_msg": "账号或密码错误！"}
+            res.data = {"msg": "fail"}
             res.status_code = 400
             return res
 
 
-@api_view(['GET','POST'])
+@api_view(['GET'])
 def user_logout(request):
+    print(request.user.id)
     logout(request)
     return Response({"msg":"退出成功"})
 
@@ -158,15 +159,18 @@ def user_index(request, nickname):
     :param request:
     :return:
     """
-    page, len = account_utils.get_page_and_len(request, 0, 9)
+    page, len = account_utils.get_page_and_len(request, 0, 20)
     try:
         user = User.objects.get(nickname=nickname)
         info = {}
-        info['userInfo'] = UserImagesSerializer(user).data
-        images = Image.objects.values_list('id').filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
+        info['userInfo'] = UserIndexSerializer(user).data
+        info['userInfo']['followers_num'] = redis_utils.get_follower_num(user.id)
+        info['userInfo']['followings_num'] = redis_utils.get_following_num(user.id)
+        images = Image.objects.filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
         images_id = []
         for image in images:
-            images_id.append(image[0])
+            images_id.append(image.id)
+            redis_utils.set_image_info(ImageSerializer(image).data, image.create_time)
         info['images_id'] = images_id
         return Response(info)
     except User.DoesNotExist:
@@ -241,13 +245,9 @@ def follow_user(request, pk):
         user_b = User.objects.get(id=str(pk))
         relation = UserRelationship(user_a=user_a, user_b=user_b)
         relation.save()
-        # 增加关注，粉丝数量
-        # TODO: 原子性？
-        user_a.following_num += 1
-        user_b.follow_num += 1
-        user_a.save()
-        user_b.save()
+        # 增加关注
         redis_utils.follow_user(user_a.id, user_b.id)
+        feed_utils.follow(user_a.id, user_b.id)
         return Response({"msg": "关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -270,13 +270,7 @@ def unfollow_user(request, pk):
         return Response(status.HTTP_400_BAD_REQUEST)
     try:
         user_b = User.objects.get(id=str(pk))
-        result, row = UserRelationship.objects.filter(user_a=user_a,user_b=user_b).delete()
-        # 减少关注，粉丝数量
-        if result:
-            user_a.following_num -= 1
-            user_b.follow_num -= 1
-            user_a.save()
-            user_b.save()
+        UserRelationship.objects.filter(user_a=user_a,user_b=user_b).delete()
         redis_utils.unfollow_user(user_a.id, user_b.id)
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
@@ -292,7 +286,4 @@ def moments(request):
     :return:
     """
     # TODO:获取关注好友的图片
-    user = request.user
-    serializer = UserIndexSerializer(user)
-    followers = get_followers(user)
-    return Response(serializer.data)
+    return Response({"images_id":feed_utils.get_moments(request.user.id, 0,100)})

@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id','username','nickname','password','is_active','gender', 'phone_num'
-                  'description','profile_photo_url', 'follow_num', 'following_num', 'image_num')
+                  'description','profile_photo_url', 'image_num')
 
 
 class UserIndexSerializer(serializers.ModelSerializer):
@@ -17,7 +17,7 @@ class UserIndexSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id','username', 'nickname','description', 'gender', 'phone_num',
-                  'profile_photo_url','follow_num', 'following_num', 'image_num')
+                  'profile_photo_url', 'image_num')
 
 
 class UserSimpleSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class UserImagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'nickname', 'description', 'gender', 'phone_num',
-                  'profile_photo_url', 'follow_num', 'following_num', 'image_num',  'images')
+                  'profile_photo_url', 'image_num',  'images')
 
 
 class UserFollowersSerializer(serializers.ModelSerializer):

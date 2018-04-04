@@ -1,10 +1,12 @@
 import redis
+import datetime
 import time
 import json
 from account.serializers import UserSimpleSerializer
 from account.models import User
 from rest_framework.renderers import JSONRenderer
 from utils import date_utils
+import time
 
 DAY_SECOND = 60 * 60 * 24
 WEEK_SECOND = DAY_SECOND * 7
@@ -12,6 +14,10 @@ MONTH_SECOND = DAY_SECOND * 30
 
 POOL = redis.ConnectionPool(host='127.0.0.1',port=6379)
 
+
+# 字符串时间转为时间戳
+def Changetime(date):
+    return time.mktime(date.timetuple())
 
 def get_connection():
     return redis.Redis(connection_pool=POOL)
@@ -162,6 +168,12 @@ def set_followers(from_user_id, contents):
         pass
 
 
+def get_followers_num(user_id):
+    conn = get_connection()
+    key = 'user:' + str(user_id) + ':followers'
+    return conn.zcard(key)
+
+
 def set_followings(from_user_id, contents):
     """
     将粉丝列表放入缓存
@@ -183,7 +195,12 @@ def set_followings(from_user_id, contents):
         pass
 
 
-def set_image_info(info):
+def get_followings_num(user_id):
+    conn = get_connection()
+    key = 'user:' + str(user_id) + ':followings'
+    return conn.zcard(key)
+
+def set_image_info(info, date):
     """
     缓存图片信息
     :param info:
@@ -197,11 +214,12 @@ def set_image_info(info):
     user_image_set_key = 'user:'+user_id + ':images'
     try:
         pipe.set(image_key, info)
-        pipe.sadd(user_image_set_key,image_id)
+        pipe.zadd(user_image_set_key, image_id, Changetime(date))
+        pipe.zadd('moments:'+str(user_id), image_id, Changetime(date))
         pipe.expire(image_id, MONTH_SECOND)
         pipe.execute()
     except Exception:
-        pass
+        print('缓存图片失败')
 
 
 def get_image_info(image_id):

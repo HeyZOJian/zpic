@@ -11,6 +11,8 @@ from utils import redis_utils
 from rest_framework.renderers import JSONRenderer
 from image import utils as image_utils
 from utils import date_utils
+from utils import feed_utils
+
 
 @login_required
 @api_view(['GET', 'POST'])
@@ -36,11 +38,12 @@ def upload_image(request):
         user.save()
         serializer = ImageSerializer(image)
         # 缓存图片信息
-        redis_utils.set_image_info(serializer.data)
+        redis_utils.set_image_info(serializer.data,image.create_time)
+        feed_utils.send(user.id, image.id, image.create_time)
         return Response(serializer.data)
 
-
-@login_required
+# TODO: 未登录时GET 只能获取点赞数
+# @login_required
 @api_view(['GET', 'POST'])
 def like_image(request, pk):
     """
