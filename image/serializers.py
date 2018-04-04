@@ -6,7 +6,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ('id', 'publisher', 'content', 'create_time')
+        fields = ('id', 'publisher','reply_id', 'reply_nickname', 'content', 'create_time')
 
 
 class ImageSerializer(serializers.ModelSerializer):

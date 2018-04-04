@@ -116,6 +116,7 @@ def view_image(request, pk):
     if request.method == 'GET':
         return Response(redis_utils.get_views_num(pk))
 
+
 # TODO: get的登陆权限，delete判断是否为用户自己本身
 # @login_required
 @api_view(['GET', 'POST', 'DELETE'])
@@ -133,8 +134,10 @@ def image_comment(request, pk):
 
     elif request.method == 'POST':
         try:
+            reply_id = request.data.get('reply_id')
+            reply_nickname = request.data.get('reply_nickname')
             content = request.data.get('comment')
-            image_utils.add_image_comment(pk, request.user, content)
+            image_utils.add_image_comment(pk, request.user, content, reply_id, reply_nickname)
             # 更新日榜图片积分
             redis_utils.add_score_dayrank(pk)
             return Response('评论成功')

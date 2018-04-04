@@ -247,7 +247,7 @@ def follow_user(request, pk):
         relation.save()
         # 增加关注
         redis_utils.follow_user(user_a.id, user_b.id)
-        feed_utils.follow(user_a.id, user_b.id)
+        feed_utils.follow_user(user_a.id, user_b.id)
         return Response({"msg": "关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -272,6 +272,7 @@ def unfollow_user(request, pk):
         user_b = User.objects.get(id=str(pk))
         UserRelationship.objects.filter(user_a=user_a,user_b=user_b).delete()
         redis_utils.unfollow_user(user_a.id, user_b.id)
+        feed_utils.unfollow_user(user_a.id, user_b.id)
         return Response({"msg": "取消关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)

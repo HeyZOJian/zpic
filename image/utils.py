@@ -51,9 +51,9 @@ def get_image_comments(image_id, page, len):
     return {'num':nums, 'comments': info}
 
 
-def add_image_comment(image_id, user, content):
+def add_image_comment(image_id, user, content, reply_id,reply_nickname):
     image = Image.objects.get(id=image_id)
-    comment = Comment(publisher=user, content=content, image=image)
+    comment = Comment(publisher=user, content=content, image=image, reply_id=reply_id, reply_nickname=reply_nickname)
     comment.save()
     comment_info = CommentSerializer(comment).data
     comment_info['publisher_nickname'] = user.nickname
