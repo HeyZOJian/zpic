@@ -27,7 +27,7 @@ def send(user_id, image_id, date):
         print('send error')
 
 
-def follow(from_user_id, to_user_id):
+def follow_user(from_user_id, to_user_id):
     """
     关注用户， 将对方的图片信息添加进自己的朋友圈
     :param from_user_id:
@@ -37,9 +37,27 @@ def follow(from_user_id, to_user_id):
     conn = redis_utils.get_connection()
     from_user_moments_key = 'moments:' + str(from_user_id)
     to_user_id_images_key = 'user:' + str(to_user_id) + ':images'
-    print(from_user_moments_key, to_user_id_images_key)
     conn.zunionstore(from_user_moments_key, [from_user_moments_key, to_user_id_images_key])
-    print("merge")
+
+
+def unfollow_user(from_user_id, to_user_id):
+    """
+    取消关注，将对方的图片信息从自己的朋友圈中删除
+    :param from_user_id:
+    :param to_user_id:
+    :return:
+    """
+    conn  = redis_utils.get_connection()
+    from_user_moments_key = 'moments:' + str(from_user_id)
+    to_user_id_images_key = 'user:' + str(to_user_id) + ':images'
+    pipe = conn.pipeline()
+    try:
+        images_id = [bytes.decode(id) for id in conn.zrange(to_user_id_images_key, 0, -1)]
+        for id in images_id:
+            pipe.zrem(from_user_moments_key, id)
+        pipe.execute()
+    except Exception:
+        print("朋友圈：取关失败")
 
 
 def get_moments(user_id, page, len):
