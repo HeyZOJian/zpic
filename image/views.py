@@ -7,7 +7,7 @@ from .serializers import *
 from .qiniu_upload import upload_to_qiniu_and_get_url
 from image import utils as image_utils
 from utils import date_utils, feed_utils, redis_utils, tag_utils
-
+from django.contrib.auth.models import AnonymousUser
 
 @login_required
 @api_view(['GET', 'POST'])
@@ -113,8 +113,6 @@ def view_image(request, pk):
         return Response(redis_utils.get_views_num(pk))
 
 
-# TODO: get的登陆权限，delete判断是否为用户自己本身
-# @login_required
 @api_view(['GET', 'POST', 'DELETE'])
 def image_comment(request, pk):
     """
@@ -124,21 +122,25 @@ def image_comment(request, pk):
     :return:
     """
     if request.method == 'GET':
+        print(request.user)
         page, len = image_utils.get_page_and_len(request, 0, 20)
         info = image_utils.get_image_comments(pk, page, len)
         return Response(info)
 
     elif request.method == 'POST':
-        try:
-            reply_id = request.data.get('reply_id')
-            reply_nickname = request.data.get('reply_nickname')
-            content = request.data.get('comment')
-            image_utils.add_image_comment(pk, request.user, content, reply_id, reply_nickname)
-            # 更新日榜图片积分
-            redis_utils.add_score_dayrank(pk)
-            return Response('评论成功')
-        except Exception:
-            return Response(status.HTTP_400_BAD_REQUEST)
+        if type(request.user)!=AnonymousUser:
+            try:
+                reply_id = request.data.get('reply_id')
+                reply_nickname = request.data.get('reply_nickname')
+                content = request.data.get('comment')
+                image_utils.add_image_comment(pk, request.user, content, reply_id, reply_nickname)
+                # 更新日榜图片积分
+                redis_utils.add_score_dayrank(pk)
+                return Response('评论成功')
+            except Exception:
+                return Response(status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(status.HTTP_401_UNAUTHORIZED)
 
     elif request.method == 'DELETE':
         if request.GET.__len__()==1:
