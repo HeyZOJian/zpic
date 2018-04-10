@@ -19,8 +19,8 @@ class Comment(models.Model):
     评论表
     """
     publisher =  models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='comments')
-    reply_id = models.IntegerField(blank=True)
-    reply_nickname = models.CharField(max_length=24, blank=True)
+    # reply_id = models.IntegerField(blank=True)
+    # reply_nickname = models.CharField(max_length=24, blank=True)
     content = models.CharField(max_length=256, blank=False)
     create_time = models.DateTimeField(auto_now=True)
     image = models.ForeignKey(Image, on_delete=models.CASCADE, related_name='comments')

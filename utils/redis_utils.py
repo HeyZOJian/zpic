@@ -334,6 +334,18 @@ def get_image_likes(image_id):
         result.append(get_user_info(user_id))
     return result
 
+def have_liked_image(user_id, img_id):
+    """
+    是否点赞图片
+    :param user_id:
+    :param img_id:
+    :return:
+    """
+    users = get_image_likes(img_id)
+    for user in users:
+        if user.get('id') == user_id:
+            return True
+    return False
 
 def add_score_dayrank(image_id):
     """

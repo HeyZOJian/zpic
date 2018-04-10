@@ -8,6 +8,7 @@ from .qiniu_upload import upload_to_qiniu_and_get_url
 from image import utils as image_utils
 from utils import date_utils, feed_utils, redis_utils, tag_utils
 from django.contrib.auth.models import AnonymousUser
+from django.views.decorators.csrf import csrf_exempt
 
 @login_required
 @api_view(['GET', 'POST'])
@@ -38,8 +39,7 @@ def upload_image(request):
         tag_utils.add_image(tag_utils.filter_tag(title), image.id,image.create_time)
         return Response(serializer.data)
 
-# TODO: 未登录时GET 只能获取点赞数
-# @login_required
+
 @api_view(['GET', 'POST'])
 def like_image(request, pk):
     """
@@ -48,16 +48,19 @@ def like_image(request, pk):
     :return:
     """
     if request.method == 'POST':
+
         """
         点赞图片
         """
         # TODO：通知图片主人
-        try:
-            redis_utils.add_like(request.user.id, pk)
-            return Response({"msg": "点赞成功"})
-        except Exception:
-            return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        if type(request.user) != AnonymousUser:
+            try:
+                redis_utils.add_like(request.user.id, pk)
+                return Response({"msg": "点赞成功"})
+            except Exception:
+                return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response(status.HTTP_401_UNAUTHORIZED)
     elif request.method == 'GET':
         """
         返回图片点赞数和点赞用户列表
@@ -95,7 +98,7 @@ def get_image_detail(request, pk):
     :return:
     """
     try:
-        info = image_utils.get_image_info(pk)
+        info = image_utils.get_image_info(request.user.id, pk)
         return Response(info)
     except Image.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -122,7 +125,6 @@ def image_comment(request, pk):
     :return:
     """
     if request.method == 'GET':
-        print(request.user)
         page, len = image_utils.get_page_and_len(request, 0, 20)
         info = image_utils.get_image_comments(pk, page, len)
         return Response(info)
@@ -130,13 +132,15 @@ def image_comment(request, pk):
     elif request.method == 'POST':
         if type(request.user)!=AnonymousUser:
             try:
-                reply_id = request.data.get('reply_id')
-                reply_nickname = request.data.get('reply_nickname')
-                content = request.data.get('comment')
-                image_utils.add_image_comment(pk, request.user, content, reply_id, reply_nickname)
-                # 更新日榜图片积分
-                redis_utils.add_score_dayrank(pk)
-                return Response('评论成功')
+                # reply_id = request.data.get('reply_id') or 0
+                # reply_nickname = request.data.get('reply_nickname') or ""
+                content = request.data.get('content')
+                # image_utils.add_image_comment(pk, request.user, content, reply_id, reply_nickname)
+                # # 更新日榜图片积分
+                # redis_utils.add_score_dayrank(pk)
+                users_dic = image_utils.get_nickname_from_content(request.data.get('content'))
+                image_utils.add_image_comment(pk, request.user, content, users_dic)
+                return Response({"msg":"评论成功"})
             except Exception:
                 return Response(status.HTTP_400_BAD_REQUEST)
         else:

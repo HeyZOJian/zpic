@@ -62,6 +62,7 @@ def user_register(request):
         User(username=username,nickname=nickname,password=make_password(password)).save()
         return HttpResponseRedirect('../login')
 
+
 @api_view(['GET', 'POST'])
 def user_login(request):
     """
@@ -74,6 +75,7 @@ def user_login(request):
     if request.method == 'POST':
         username = request.data.get('username')
         password = request.data.get('password')
+        print(username,password)
         try:
             res = Response()
             user = User.objects.get(username=username)
@@ -97,7 +99,6 @@ def user_login(request):
 
 @api_view(['GET'])
 def user_logout(request):
-    print(request.user.id)
     logout(request)
     return Response({"msg":"退出成功"})
 
@@ -278,7 +279,7 @@ def unfollow_user(request, pk):
         return Response(status.HTTP_400_BAD_REQUEST)
 
 
-# @login_required
+@login_required
 @api_view(['GET'])
 def moments(request):
     """
