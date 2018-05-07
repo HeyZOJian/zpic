@@ -26,9 +26,10 @@ urlpatterns = [
     path('moments/', moments),
     path('p/', include(image_urls)),
     path('<nickname>/', user_index),
+    path('explore/day/', hots_day),
+    path('explore/week/', hots_week),
+    path('explore/month/', hots_month),
     path('<nickname>/followers/', user_followers),
     path('<nickname>/followings/', user_followings),
-    path('hots/day/', hots_day),
-    path('hots/week/', hots_week),
-    path('hots/month/', hots_month),
+    path('chat/', include('websocket.urls')),
 ]

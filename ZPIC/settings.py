@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'account',
     'image',
     'corsheaders',
+    'channels',
+    'websocket'
 ]
 
 MIDDLEWARE = [
@@ -51,6 +53,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -89,6 +92,7 @@ DATABASES = {
         # 'PASSWORD': os.getenv("SQL_PASSWORD"),  # 密码
         'HOST': '',  # 数据库IP地址,留空默认为localhost
         'PORT': '5432',  # 端口
+        'CONN_MAX_AGE': 600, #持久化连接
     }
 }
 
@@ -133,27 +137,10 @@ STATIC_URL = '/static/'
 
 AUTH_USER_MODEL = 'account.User'
 
+LOGIN_URL = 'account/login'
+
 APPEND_SLASH=True
 
-JWT_AUTH = {
-    'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=3600),
-}
-
-# TEMPLATES = [
-#     {
-#         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-#         'DIRS': ['frontend/src/page'],
-#         'APP_DIRS': True,
-#         'OPTIONS': {
-#             'context_processors': [
-#                 'django.template.context_processors.debug',
-#                 'django.template.context_processors.request',
-#                 'django.contrib.auth.context_processors.auth',
-#                 'django.contrib.messages.context_processors.messages',
-#             ],
-#         },
-#     },
-# ]
 
 #跨域增加忽略
 CORS_ALLOW_CREDENTIALS = True
@@ -181,3 +168,14 @@ CORS_ALLOW_HEADERS = (
     'x-csrftoken',
     'x-requested-with',
 )
+
+# Channels
+ASGI_APPLICATION = 'routing.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
+}
