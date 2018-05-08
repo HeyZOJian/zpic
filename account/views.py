@@ -16,10 +16,14 @@ from utils import redis_utils
 from image.models import Image
 import account.utils as account_utils
 from utils import feed_utils
-
+from asgiref.sync import sync_to_async, async_to_sync
+from channels.auth import get_user
+from websocket import utils as ws_utils
 # User
 
 # ========================================注册登录退出=======================================
+
+
 @api_view(['POST'])
 def check_username(request):
     """
@@ -60,7 +64,7 @@ def user_register(request):
         password = request.data.get('password')
         nickname = request.data.get('nickname')
         User(username=username,nickname=nickname,password=make_password(password)).save()
-        return HttpResponseRedirect('../login')
+        return Response(status.HTTP_200_OK)
 
 
 @api_view(['GET', 'POST'])
@@ -119,7 +123,7 @@ def user_update(request):
         user.nickname = request.data.get('nickname') if request.data.get('nickname') != "" else user.nickname
         user.description = request.data.get('description') if request.data.get('description') != "" else user.description
         user.gender = request.data.get('gender') if request.data.get('gender') != "" else user.gender
-        user.phone_num = request.data.get('phone_num') if request.data.get('phone_num') != "" else user.phone_num
+        user.phone_num = request.data.get('phone_num') if request.data.get('phoneNum') != "" else user.phone_num
         user.save()
         return Response({"msg": "更新资料成功"})
     except Exception:
@@ -160,20 +164,24 @@ def user_index(request, nickname):
     :param request:
     :return:
     """
+    # print(">>>>>>>>user:"+get_user())
     page, len = account_utils.get_page_and_len(request, 0, 20)
     try:
         user = User.objects.get(nickname=nickname)
-        info = {}
-        info['userInfo'] = UserIndexSerializer(user).data
-        info['userInfo']['followers_num'] = redis_utils.get_follower_num(user.id)
-        info['userInfo']['followings_num'] = redis_utils.get_following_num(user.id)
-        images = Image.objects.filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
-        images_id = []
-        for image in images:
-            images_id.append(image.id)
-            redis_utils.set_image_info(ImageSerializer(image).data, image.create_time)
-        info['images_id'] = images_id
-        return Response(info)
+        if user.id != request.user.id and user.status==1:
+            return Response({'type':'personal'})
+        else:
+            info = {}
+            info['userInfo'] = UserIndexSerializer(user).data
+            info['userInfo']['followers_num'] = redis_utils.get_follower_num(user.id)
+            info['userInfo']['followings_num'] = redis_utils.get_following_num(user.id)
+            images = Image.objects.filter(author_id=user.id).order_by('-create_time')[page*len: (page+1)*len]
+            images_id = []
+            for image in images:
+                images_id.append(image.id)
+                redis_utils.set_image_info(ImageSerializer(image).data, image.create_time)
+            info['images_id'] = images_id
+            return Response(info)
     except User.DoesNotExist:
         return Response(status.HTTP_404_NOT_FOUND)
 
@@ -181,7 +189,7 @@ def user_index(request, nickname):
 
 @login_required
 @api_view(['GET'])
-def user_followers(request, nickname):
+def user_followers(request,nickname):
     """
     用户的关注列表
     :param request:
@@ -189,6 +197,7 @@ def user_followers(request, nickname):
     """
     # TODO:没有筛掉被封的用户
     try:
+        # user_id = request.user.id
         user_id = User.objects.get(nickname=nickname).id
         page, len = account_utils.get_page_and_len(request, 0, 10)
         result = redis_utils.get_follower(user_id, page, len)
@@ -199,7 +208,8 @@ def user_followers(request, nickname):
             users = UserFollowersSerializer(queryset, many=True)
             content = eval(JSONRenderer().render(users.data))
             redis_utils.set_followers(request.user.id, content)
-            return Response(users.data)
+            result = redis_utils.get_follower(user_id, page, len)
+            return Response(result)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
@@ -214,6 +224,7 @@ def user_followings(request, nickname):
     """
     # TODO:没有筛掉被封的用户
     try:
+        # user_id = request.user.id
         user_id = User.objects.get(nickname=nickname).id
         page, len = account_utils.get_page_and_len(request, 0, 10)
         result = redis_utils.get_following(user_id, page, len)
@@ -224,7 +235,8 @@ def user_followings(request, nickname):
             users = UserFollowingsSerializer(queryset, many=True)
             content = eval(JSONRenderer().render(users.data))
             redis_utils.set_followings(request.user.id, content)
-            return Response(users.data)
+            result = redis_utils.get_following(user_id, page, len)
+            return Response(result)
     except UserRelationship.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
 
@@ -249,11 +261,11 @@ def follow_user(request, pk):
         # 增加关注
         redis_utils.follow_user(user_a.id, user_b.id)
         feed_utils.follow_user(user_a.id, user_b.id)
+        async_to_sync(ws_utils.send_notice)(user_b.id, 'friend', user_a.nickname+'关注你了')
         return Response({"msg": "关注成功"})
     except User.DoesNotExist:
         return Response(status.HTTP_400_BAD_REQUEST)
-    except Exception:
-        return Response(status.HTTP_400_BAD_REQUEST)
+
 
 
 @login_required
@@ -288,12 +300,32 @@ def moments(request):
     :return:
     """
     page, len = account_utils.get_page_and_len(request, 0, 20)
-    return Response({"images_id":feed_utils.get_moments(request.user.id, page,len)})
+    return Response(feed_utils.get_moments(request.user.id, page,len))
 
 
 @api_view(['GET'])
 def search_user(request):
     keyword = request.GET.get('keyword')
-    results = User.objects.filter(nickname__icontains=keyword)
-    results = [user.id for user in results]
-    return Response({"users_id":results})
+    user_list = User.objects.filter(nickname__icontains=keyword)
+    results = []
+    for user in user_list:
+        results.append(redis_utils.get_user_info(user.id))
+    return Response(results)
+
+
+@login_required
+@api_view(['POST'])
+def lock_account(request):
+    user = User.objects.get(id=request.user.id)
+    user.status=1
+    user.save()
+    return Response({'msg':'ok'})
+
+
+@login_required
+@api_view(['POST'])
+def unlock_account(request):
+    user = User.objects.get(id=request.user.id)
+    user.status=0
+    user.save()
+    return Response({'msg':'ok'})

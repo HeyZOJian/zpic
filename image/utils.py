@@ -19,13 +19,14 @@ def get_nickname_from_content(content):
             user_id_dict[nickname] = info.get('id')
     return user_id_dict
 
+
 def get_page_and_len(request, default_page, default_len):
     page = default_page
     len = default_len
     if request.GET.__len__() == 2:
         page = int(request.GET.get('page')) - 1
         len = int(request.GET.get('len'))
-    return page,len
+    return page, len
 
 
 def get_image_info(user_id, image_id):

@@ -12,7 +12,7 @@ DAY_SECOND = 60 * 60 * 24
 WEEK_SECOND = DAY_SECOND * 7
 MONTH_SECOND = DAY_SECOND * 30
 
-POOL = redis.ConnectionPool(host='127.0.0.1',port=6379)
+POOL = redis.ConnectionPool(host='127.0.0.1',port=6379,max_connections=100)
 
 
 
@@ -69,6 +69,7 @@ def follow_user(from_user_id, to_user_id):
         pipe.zadd(from_user_key_name, to_user_id, t)
         pipe.zadd(to_user_key_name, from_user_id, t)
         pipe.execute()
+        print(from_user_key_name, to_user_key_name)
     except redis.RedisError:
         print("关注失败")
 
@@ -101,7 +102,7 @@ def get_follower(user_id, page=0, len=10):
     """
     conn = get_connection()
     key = 'user:' + str(user_id) + ':followers'
-    queryset = conn.zrange(key, page*len, (page + 1)*len)
+    queryset = conn.zrevrange(key, page*len, (page + 1)*len-1)
     result = []
     for user_id in queryset:
         result.append(get_user_info(str(user_id)[2:-1]))
@@ -126,11 +127,21 @@ def get_following(user_id, page=0, len=10):
     :return:
     """
     conn = get_connection()
-    key = 'user:' + str(user_id) + ':followings'
-    queryset = conn.zrange(key, page*len, (page + 1) * len)
+    followings_key = 'user:' + str(user_id) + ':followings'
+    followers_key = 'user:' + str(user_id) + ':followers'
+    queryset = conn.zrevrange(followings_key, page*len, (page + 1) * len-1)
+    followers_id_list = [ str(user_id)[2:-1] for user_id in conn.zrevrange(followers_key,0,-1)]
     result = []
     for user_id in queryset:
-        result.append(get_user_info(str(user_id)[2:-1]))
+        user_id = str(user_id)[2:-1]
+        info = get_user_info(user_id)
+        # print(user_id, followers_id_list)
+        if user_id in followers_id_list:
+            info['bothway'] = True
+        else:
+            info['bothway'] = False
+        # result.append(get_user_info(str(user_id)[2:-1]))
+        result.append(info)
     return result
 
 
@@ -255,7 +266,7 @@ def get_comments(image_id, page, len):
     """
     conn = get_connection()
     key = 'image:' + str(image_id) + ':comments'
-    return conn.zcard(key), conn.zrange(key,page*len, (page+1)*len)
+    return conn.zcard(key), conn.zrevrange(key,page*len, (page+1)*len-1)
 
 def add_view_num(image_id):
     """
@@ -379,7 +390,6 @@ def get_hots_week(days, start, end):
     conn = get_connection()
     key = 'hots:this_week'
     try:
-        # TODO: 事务问题
         weeks = ['hots:'+day for day in days]
         conn.zunionstore(key, weeks)
         id_lists = conn.zrevrange(key, start, end)
@@ -395,7 +405,6 @@ def get_hots_month(days, start, end):
     conn = get_connection()
     key = 'hots:this_month'
     try:
-        # TODO: 事务问题
         weeks = ['hots:' + day for day in days]
         conn.zunionstore(key, weeks)
         id_lists = conn.zrevrange(key, start, end)

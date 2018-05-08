@@ -68,9 +68,10 @@ def get_moments(user_id, page, len):
     """
     conn = redis_utils.get_connection()
     key = 'moments:' + str(user_id)
-    images_id = conn.zrange(key, page*len, (page+1)*len-1)
+    nums = conn.zcard(key)
+    images_id = conn.zrevrange(key, page*len, (page+1)*len-1)
     # result = []
     # for id in images_id:
     #     result.append(redis_utils.get_image_info(bytes.decode(id)))
     # return result
-    return [int(bytes.decode(id)) for id in images_id]
+    return {"moments_num":nums,"images_id":[int(bytes.decode(id)) for id in images_id]}

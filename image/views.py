@@ -9,7 +9,8 @@ from image import utils as image_utils
 from utils import date_utils, feed_utils, redis_utils, tag_utils
 from django.contrib.auth.models import AnonymousUser
 from django.views.decorators.csrf import csrf_exempt
-
+from asgiref.sync import async_to_sync
+from websocket import utils as ws_utils
 @login_required
 @api_view(['GET', 'POST'])
 def upload_image(request):
@@ -29,7 +30,6 @@ def upload_image(request):
         image = Image(author=user,img_url=url,title=title)
         image.save()
         # 增加用户图片数量
-        # TODO: 原子性？
         user.image_num += 1
         user.save()
         serializer = ImageSerializer(image)
@@ -52,10 +52,12 @@ def like_image(request, pk):
         """
         点赞图片
         """
-        # TODO：通知图片主人
+        image = Image.objects.get(id=pk)
         if type(request.user) != AnonymousUser:
             try:
                 redis_utils.add_like(request.user.id, pk)
+                print("author_id:",image.author.id)
+                async_to_sync(ws_utils.send_notice)(image.author.id, 'like', request.user.nickname+'赞了你图片')
                 return Response({"msg": "点赞成功"})
             except Exception:
                 return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -132,6 +134,7 @@ def image_comment(request, pk):
     elif request.method == 'POST':
         if type(request.user)!=AnonymousUser:
             try:
+                image = Image.objects.get(id=pk)
                 # reply_id = request.data.get('reply_id') or 0
                 # reply_nickname = request.data.get('reply_nickname') or ""
                 content = request.data.get('content')
@@ -140,6 +143,7 @@ def image_comment(request, pk):
                 # redis_utils.add_score_dayrank(pk)
                 users_dic = image_utils.get_nickname_from_content(request.data.get('content'))
                 image_utils.add_image_comment(pk, request.user, content, users_dic)
+                async_to_sync(ws_utils.send_notice)(image.author.id,'comment',request.user.nickname+':'+content)
                 return Response({"msg":"评论成功"})
             except Exception:
                 return Response(status.HTTP_400_BAD_REQUEST)
@@ -154,7 +158,7 @@ def image_comment(request, pk):
                 print(comment)
                 comment.stauts=1
                 comment.save()
-                return Response({"msg":"删除评论成功"})
+                return Response({"msg": "删除评论成功"})
             except Comment.DoesNotExist:
                 return Response(status.HTTP_400_BAD_REQUEST)
         return Response(status.HTTP_400_BAD_REQUEST)
@@ -171,7 +175,7 @@ def hots_day(request):
     """
     每日热门图片榜
     """
-    page, len = image_utils.get_page_and_len(request, 0, 12)
+    page, len = image_utils.get_page_and_len(request, 0, 9)
     today = date_utils.get_today()
     results = redis_utils.get_hots_day(today, page*len, (page+1)*len-1)
     return Response(results)
@@ -182,7 +186,7 @@ def hots_week(request):
     """
     每周热门图片榜
     """
-    page, len = image_utils.get_page_and_len(request, 0, 12)
+    page, len = image_utils.get_page_and_len(request, 0, 9)
     this_weeks = date_utils.get_this_week()
     results = redis_utils.get_hots_week(this_weeks, page*len, (page+1)*len-1)
     return Response(results)
@@ -193,7 +197,7 @@ def hots_month(request):
     """
     每月热门图片榜
     """
-    page, len = image_utils.get_page_and_len(request, 0, 12)
+    page, len = image_utils.get_page_and_len(request, 0, 9)
     this_months = date_utils.get_this_month()
     results = redis_utils.get_hots_month(this_months, page*len, (page+1)*len-1)
     return Response(results)

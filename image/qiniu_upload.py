@@ -29,4 +29,4 @@ def upload_to_qiniu_and_get_url(obj):
     ret, info = put_file(token, filename, localfile)
     if ret:
         os.remove(localfile)
-    return "http://"+bucket_url+"/"+filename+"?imageslim"
+    return "http://"+bucket_url+"/"+filename

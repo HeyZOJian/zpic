@@ -2,6 +2,12 @@ from utils import redis_utils
 import time
 
 
+def add_offline_chat_message(user_id, notice):
+    # conn = redis_utils.get_connection()
+    # key = 'user:' + str(user_id) + ':chat:offline'
+    pass
+
+
 def add_unread_notice(user_id, notice):
     conn = redis_utils.get_connection()
     key = 'user:'+str(user_id)+':notice:unread'

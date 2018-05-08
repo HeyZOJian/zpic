@@ -13,8 +13,10 @@ urlpatterns = [
     path('logout/', user_logout),
     path('check_username/', check_username),
     path('check_nickname/', check_nickname),
-    path('info/', user_update),
+    path('edit/', user_update),
     path('profile_photo/', change_profile_photo),
     path('friend/', include(friendship_urls)),
-    path('search/', search_user)
+    path('search/', search_user),
+    path('lock/', lock_account),
+    path('unlock/', unlock_account)
 ]
