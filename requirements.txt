@@ -11,7 +11,7 @@ graphql-core==2.0
 graphql-relay==0.4.5
 idna==2.6
 iso8601==0.1.12
-Pillow==5.0.0
+Pillow==6.2.0
 promise==2.1
 psycopg2==2.7.4
 psycopg2-binary==2.7.4
